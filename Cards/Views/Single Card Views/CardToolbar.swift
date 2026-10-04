@@ -1,15 +1,15 @@
 /// Copyright (c) 2025 Kodeco Inc.
-/// 
+///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
 /// in the Software without restriction, including without limitation the rights
 /// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 /// copies of the Software, and to permit persons to whom the Software is
 /// furnished to do so, subject to the following conditions:
-/// 
+///
 /// The above copyright notice and this permission notice shall be included in
 /// all copies or substantial portions of the Software.
-/// 
+///
 /// Notwithstanding the foregoing, you may not use, copy, modify, merge, publish,
 /// distribute, sublicense, create a derivative work, and/or sell copies of the
 /// Software in any work that is designed, intended, or marketed for pedagogical or
@@ -17,7 +17,7 @@
 /// or information technology.  Permission for such use, copying, modification,
 /// merger, publication, distribution, sublicensing, creation of derivative works,
 /// or sale is expressly withheld.
-/// 
+///
 /// This project and source code may use libraries or frameworks that are
 /// released under various Open-Source licenses. Use of those libraries and
 /// frameworks are governed by their own individual licenses.
@@ -32,93 +32,122 @@
 
 import SwiftUI
 
+// swiftlint:disable function_body_length
+
 struct CardToolbar: ViewModifier {
   @Environment(\.dismiss) var dismiss
-
+  @EnvironmentObject var store: CardStore
   @Binding var currentModal: ToolbarSelection?
   @Binding var card: Card
+  @State private var stickerImage: UIImage?
+  @State private var frameIndex: Int?
+  @State private var textElement = TextElement()
 
   func body(content: Content) -> some View {
     content
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Done") {
-            dismiss()
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        menu
+      }
+      ToolbarItem(placement: .topBarTrailing) {
+        Button("Done") {
+          card.save()
+          store.selectedElement = nil
+          dismiss()
+        }
+      }
+      ToolbarItem(placement: .topBarLeading) {
+        let uiImage = UIImage.screenshot(
+          card: card,
+          size: Settings.cardSize)
+        let image = Image(uiImage: uiImage)
+        ShareLink(
+          item: image,
+          preview: SharePreview(
+            "Card",
+            image: image)) {
+              Image(systemName: "square.and.arrow.up")
+        }
+      }
+      ToolbarItem(placement: .bottomBar) {
+        BottomToolbar(
+          card: $card,
+          modal: $currentModal)
+      }
+    }
+    .sheet(item: $currentModal) { item in
+      switch item {
+      case .stickerModal:
+        StickerModal(stickerImage: $stickerImage)
+          .onDisappear {
+            if let stickerImage = stickerImage {
+              card.addElement(uiImage: stickerImage)
+            }
+            stickerImage = nil
           }
-        }
-
-        ToolbarItem(placement: .bottomBar) {
-          BottomToolbar(modal: $currentModal)
-        }
+      case .frameModal:
+        FrameModal(frameIndex: $frameIndex)
+          .onDisappear {
+            if let frameIndex {
+              card.update(
+                store.selectedElement,
+                frameIndex: frameIndex)
+              card.save()
+            }
+            frameIndex = nil
+          }
+      case .textModal:
+        TextModal(textElement: $textElement)
+          .onDisappear {
+            if !textElement.text.isEmpty {
+              card.addElement(text: textElement)
+              card.save()
+            }
+            textElement = TextElement()
+          }
+      default:
+        Text(String(describing: item))
       }
-      .sheet(item: $currentModal) { item in
-        switch item {
-        case .stickerModal:
-          StickerPicker(card: $card)
-
-        case .photoModal:
-          PlaceholderView(
-            title: "Photos",
-            icon: "photo"
-          )
-
-        case .frameModal:
-          PlaceholderView(
-            title: "Frames",
-            icon: "square.on.circle"
-          )
-
-        case .textModal:
-          PlaceholderView(
-            title: "Text",
-            icon: "textformat"
-          )
-        }
-      }
+    }
+    .onDisappear {
+      card.save()
+    }
   }
-}
 
-struct PlaceholderView: View {
-  let title: String
-  let icon: String
-
-  @Environment(\.dismiss) private var dismiss
-
-  var body: some View {
-    NavigationStack {
-      VStack(spacing: 20) {
-        Image(systemName: icon)
-          .font(.system(size: 60))
-
-        Text(title)
-          .font(.title)
-          .bold()
-
-        Text("\(title) options")
-          .foregroundStyle(.secondary)
-
-        Spacer()
-      }
-      .padding(.top, 60)
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Done") {
-            dismiss()
+  var menu: some View {
+    Menu {
+      Button {
+        if UIPasteboard.general.hasImages {
+          if let images = UIPasteboard.general.images {
+            for image in images {
+              card.addElement(uiImage: image)
+            }
+          }
+        } else if UIPasteboard.general.hasStrings {
+          if let strings = UIPasteboard.general.strings {
+            for text in strings {
+              card.addElement(text: TextElement(text: text))
+            }
           }
         }
+        card.save()
+      } label: {
+        Label("Paste", systemImage: "doc.on.clipboard")
       }
+      .disabled(!UIPasteboard.general.hasImages
+        && !UIPasteboard.general.hasStrings)
+    } label: {
+      Label("Add", systemImage: "ellipsis.circle")
     }
   }
 }
 
 #Preview {
-  @Previewable @State var card = Card()
-
   Color.yellow
-    .modifier(
-      CardToolbar(
-        currentModal: .constant(nil),
-        card: $card
-      )
-    )
+    .modifier(CardToolbar(
+      currentModal: .constant(nil),
+      card: .constant(Card())))
+    .environmentObject(CardStore(defaultData: true))
 }
+
+// swiftlint:enable function_body_length

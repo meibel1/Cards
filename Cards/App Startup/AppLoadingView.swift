@@ -1,15 +1,15 @@
-/// Copyright (c) 2026 Kodeco Inc.
-/// 
+/// Copyright (c) 2025 Kodeco Inc.
+///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
 /// in the Software without restriction, including without limitation the rights
 /// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 /// copies of the Software, and to permit persons to whom the Software is
 /// furnished to do so, subject to the following conditions:
-/// 
+///
 /// The above copyright notice and this permission notice shall be included in
 /// all copies or substantial portions of the Software.
-/// 
+///
 /// Notwithstanding the foregoing, you may not use, copy, modify, merge, publish,
 /// distribute, sublicense, create a derivative work, and/or sell copies of the
 /// Software in any work that is designed, intended, or marketed for pedagogical or
@@ -17,7 +17,7 @@
 /// or information technology.  Permission for such use, copying, modification,
 /// merger, publication, distribution, sublicensing, creation of derivative works,
 /// or sale is expressly withheld.
-/// 
+///
 /// This project and source code may use libraries or frameworks that are
 /// released under various Open-Source licenses. Use of those libraries and
 /// frameworks are governed by their own individual licenses.
@@ -32,51 +32,29 @@
 
 import SwiftUI
 
-struct StickerPicker: View {
-  @Binding var card: Card
-  @Environment(\.dismiss) private var dismiss
-
-  private let stickers = ["fire", "guitar", "tent", "tree"]
+struct AppLoadingView: View {
+  @State private var showSplash = true
 
   var body: some View {
-    NavigationStack {
-      VStack(spacing: 20) {
-        Text("Choose a Sticker")
-          .font(.title2)
-          .bold()
-
-        LazyVGrid(
-          columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-          ],
-          spacing: 20
-        ) {
-          ForEach(stickers, id: \.self) { sticker in
-            Button {
-              card.addElement(imageName: sticker)
-              dismiss()
-            } label: {
-              Image(sticker)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 110, height: 110)
-                .padding()
+    if showSplash {
+      SplashScreen()
+        .ignoresSafeArea()
+        .onAppear {
+          withAnimation(
+            .linear(duration: 1.0)
+            .delay(1.5)) {
+              showSplash = false
             }
-            .buttonStyle(.plain)
-          }
         }
-
-        Spacer()
-      }
-      .padding()
-      .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-          Button("Cancel") {
-            dismiss()
-          }
-        }
-      }
+    } else {
+      CardsListView()
+        .transition(.scale(scale: 0, anchor: .top))
     }
   }
+}
+
+#Preview {
+  AppLoadingView()
+    .environmentObject(
+      CardStore(defaultData: true))
 }
